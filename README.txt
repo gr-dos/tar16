@@ -4,6 +4,10 @@ TAR - POSIX tar for 16-bit MS-DOS
 Build (Linux host, Open Watcom in ~/opt/watcom):
 
     make                    # produces tar.exe (8086, large model)
+    make test               # runs tests/run.sh under DOSBox-X
+
+The tests need dosbox-x and GNU tar on the host (override with DOSBOX=
+and HOSTTAR=); set KEEP=1 to keep the work directory.
 
 Usage (POSIX/SUS tar utility; the leading '-' on the key is optional):
 

@@ -9,7 +9,10 @@ CFLAGS = -bt=dos -ml -0 -os -w4 -zq
 tar.exe: tar.c
 	wcl $(CFLAGS) -k8192 -fe=$@ $<
 
+test: tar.exe
+	sh tests/run.sh $(CURDIR)/tar.exe
+
 clean:
 	rm -f tar.exe *.o *.obj *.err
 
-.PHONY: clean
+.PHONY: test clean
