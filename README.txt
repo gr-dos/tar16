@@ -22,6 +22,15 @@ Usage (POSIX/SUS tar utility; the leading '-' on the key is optional):
 Arguments for b and f follow the key in the order the letters appear,
 e.g.  tar cbf 1 a.tar dir   or   tar cfb a.tar 1 dir.
 
+Wildcards:
+* c, r, u: operands containing * or ? are expanded by DOS (COMMAND.COM
+  does not do it), using DOS rules, in the last path component only:
+  tar cf src.tar *.c   or   tar cf src.tar src\*.c
+* t, x: operands containing *, ? or [...] are POSIX patterns matched
+  against member names, ignoring case.  As in pax, * and ? also match
+  '/', so  tar xf src.tar *.c  extracts every .c file at any depth.  A
+  pattern that matches a directory selects everything under it.
+
 Output format is POSIX.1 ustar.  On input, ustar, V7, and pax extended
 headers (path, linkpath, size, mtime) are understood.
 

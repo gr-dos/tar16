@@ -246,6 +246,90 @@ static int samename(const char *a, const char *b)
     return *a == '\0' && *b == '\0';
 }
 
+static int haswild(const char *s)
+{
+    return strpbrk(s, "*?[") != NULL;
+}
+
+/*
+ * POSIX pattern matching (*, ?, [...] with ! negation), ignoring case.
+ * As with pax, '*' and '?' also match '/'.
+ */
+static int wildmatch(const char *p, const char *s)
+{
+    const char *q;
+    int         lo, hi, c, neg, ok;
+
+    for (; *p != '\0'; p++, s++) {
+        switch (*p) {
+        case '*':
+            while (p[1] == '*')
+                p++;
+            if (p[1] == '\0')
+                return 1;
+            for (; *s != '\0'; s++)
+                if (wildmatch(p + 1, s))
+                    return 1;
+            return 0;
+        case '?':
+            if (*s == '\0')
+                return 0;
+            break;
+        case '[':
+            q = p + 1;
+            neg = (*q == '!');
+            if (neg)
+                q++;
+            ok = 0;
+            c = tolower((unsigned char)*s);
+            do {
+                if (*q == '\0')
+                    break;
+                lo = hi = tolower((unsigned char)*q++);
+                if (*q == '-' && q[1] != ']' && q[1] != '\0') {
+                    hi = tolower((unsigned char)q[1]);
+                    q += 2;
+                }
+                if (c >= lo && c <= hi)
+                    ok = 1;
+            } while (*q != ']');
+            if (*q != ']') {            /* no closing ']': literal '[' */
+                if (*s != '[')
+                    return 0;
+                break;
+            }
+            if (*s == '\0' || ok == neg)
+                return 0;
+            p = q;
+            break;
+        default:
+            if (tolower((unsigned char)*p) != tolower((unsigned char)*s))
+                return 0;
+            break;
+        }
+    }
+    return *s == '\0';
+}
+
+/* does the pattern match the name or one of its parent directories? */
+static int wildsel(const char *pat, const char *name)
+{
+    char   buf[PATHMAX];
+    size_t i;
+
+    for (i = 0; name[i] != '\0' && i < PATHMAX - 1; i++) {
+        buf[i] = name[i];
+        if (name[i] == '/') {
+            buf[i] = '\0';
+            if (wildmatch(pat, buf))
+                return 1;
+            buf[i] = '/';
+        }
+    }
+    buf[i] = '\0';
+    return name[i] == '\0' && wildmatch(pat, buf);
+}
+
 /* does an archive member name match the operands? */
 static int selected(const char *name)
 {
@@ -256,8 +340,9 @@ static int selected(const char *name)
         return 1;
     for (i = 0; i < noperands; i++) {
         n = strlen(operands[i]);
-        if (samename(name, operands[i]) ||
-            (strnicmp(name, operands[i], n) == 0 && name[n] == '/')) {
+        if (haswild(operands[i]) ? wildsel(operands[i], name) :
+            (samename(name, operands[i]) ||
+             (strnicmp(name, operands[i], n) == 0 && name[n] == '/'))) {
             found[i] = 1;
             return 1;
         }
@@ -900,6 +985,34 @@ static void addpath(char *path)
         warn(path, "not a regular file or directory");
 }
 
+/* expand a DOS wildcard operand, since the shell does not */
+static void addglob(char *path)
+{
+    struct find_t ft;
+    char          pat[PATHMAX];
+    size_t        dirlen;
+    unsigned      rc;
+    int           matched = 0;
+
+    strcpy(pat, path);
+    for (dirlen = strlen(path); dirlen > 0; dirlen--)
+        if (path[dirlen - 1] == '\\' || path[dirlen - 1] == '/' ||
+            path[dirlen - 1] == ':')
+            break;
+    rc = _dos_findfirst(pat, _A_NORMAL | _A_RDONLY | _A_HIDDEN |
+                        _A_SYSTEM | _A_SUBDIR | _A_ARCH, &ft);
+    while (rc == 0) {
+        if (strcmp(ft.name, ".") != 0 && strcmp(ft.name, "..") != 0) {
+            strcpy(path + dirlen, ft.name);
+            addpath(path);
+            matched = 1;
+        }
+        rc = _dos_findnext(&ft);
+    }
+    if (!matched)
+        warn(pat, "no files match");
+}
+
 /* ---------------------------------------------------------------- */
 
 static void openarchive(void)
@@ -1036,7 +1149,10 @@ int main(int argc, char **argv)
                 continue;
             }
             strcpy(path, operands[i]);
-            addpath(path);
+            if (strpbrk(path, "*?") != NULL)
+                addglob(path);
+            else
+                addpath(path);
         }
         wrend();
         break;
