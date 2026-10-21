@@ -4,10 +4,11 @@ export WATCOM
 export INCLUDE := $(WATCOM)/h
 export PATH := $(WATCOM)/binl64:$(WATCOM)/binl:$(PATH)
 
-CFLAGS = -bt=dos -ml -0 -os -w4 -zq
+VERSION := $(shell cat VERSION)
+CFLAGS = -bt=dos -ml -0 -os -w4 -zq '-DVERSION="$(VERSION)"'
 
-tar.exe: tar.c
-	wcl $(CFLAGS) -k8192 -fe=$@ $<
+tar.exe: tar.c VERSION
+	wcl $(CFLAGS) -k8192 -fe=$@ tar.c
 
 test: tar.exe
 	sh tests/run.sh $(CURDIR)/tar.exe

@@ -6,6 +6,10 @@ Build (Linux host, Open Watcom in ~/opt/watcom):
     make                    # produces tar.exe (8086, large model)
     make test               # runs tests/run.sh under DOSBox-X
 
+The version is the one line in VERSION.  When a PR that changes it is
+merged to main, the release workflow tags the merge commit v<VERSION>
+and publishes a GitHub release with tar.exe attached.
+
 The tests need dosbox-x and GNU tar on the host (override with DOSBOX=
 and HOSTTAR=); set KEEP=1 to keep the work directory.
 
@@ -16,6 +20,7 @@ Usage (POSIX/SUS tar utility; the leading '-' on the key is optional):
     tar -t[vbf]    [blocksize] [archive] [file...]  list
     tar -u[vwbf]   [blocksize] [archive] file...    update (append if newer)
     tar -x[vwbflmo][blocksize] [archive] [file...]  extract
+    tar --version                                   print the version
 
     v  verbose                  w  confirm each file (reads from CON)
     f  archive name, - = stdin/stdout (the default)

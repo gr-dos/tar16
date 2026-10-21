@@ -196,6 +196,9 @@ cd ..
 rem --- verbose listing format
 tar tvf t1.tar src/a.txt >o28.txt
 call rc 28
+rem --- version
+tar --version >o29.txt
+call rc 29
 EOF
 
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy timeout 300 \
@@ -376,6 +379,9 @@ rc 28 0
 expect 28 <<'EOF'
 -rw-r--r-- 0/0        6 Feb 03 04:05 2001 src/a.txt
 EOF
+
+rc 29 0
+echo "tar (dos-tar16) $(cat "$top/VERSION")" | expect 29
 
 # ------------------------------------------------------------------
 
