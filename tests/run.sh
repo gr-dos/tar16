@@ -381,7 +381,9 @@ expect 28 <<'EOF'
 EOF
 
 rc 29 0
-echo "tar (dos-tar16) $(cat "$top/VERSION")" | expect 29
+expect 29 <<EOF
+tar (dos-tar16) $(cat "$top/VERSION")
+EOF
 
 # ------------------------------------------------------------------
 
