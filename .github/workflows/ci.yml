@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: open-watcom/setup-watcom@v0
+        with:
+          version: "2.0"
+
+      - name: Install DOSBox-X
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dosbox-x
+
+      - name: Build
+        run: make
+
+      - name: Test
+        run: make test

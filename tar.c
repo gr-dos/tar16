@@ -26,6 +26,10 @@
 #include <sys/stat.h>
 #include <sys/utime.h>
 
+#ifndef VERSION
+#define VERSION   "unknown"
+#endif
+
 #define BLOCK     512
 #define MAXBF     20
 #define PATHMAX   260
@@ -111,7 +115,8 @@ static void usage(void)
         "       tar -r[vwbf] [blocksize] [archive] file...\n"
         "       tar -t[vbf] [blocksize] [archive] [file...]\n"
         "       tar -u[vwbf] [blocksize] [archive] file...\n"
-        "       tar -x[vwbflmo] [blocksize] [archive] [file...]\n");
+        "       tar -x[vwbflmo] [blocksize] [archive] [file...]\n"
+        "       tar --version\n");
     exit(2);
 }
 
@@ -1051,6 +1056,10 @@ int main(int argc, char **argv)
     tzset();
     if (argc < 2)
         usage();
+    if (strcmp(argv[1], "--version") == 0) {
+        printf("tar (dos-tar16) %s\n", VERSION);
+        return 0;
+    }
     key = argv[argi++];
     if (*key == '-')
         key++;
