@@ -6,7 +6,8 @@ Build (Linux host, Open Watcom in ~/opt/watcom):
     make                    # produces tar.exe (8086, large model)
     make test               # runs tests/run.sh under DOSBox-X
 
-The version is the one line in VERSION.  When a PR that changes it is
+The version is the one line in VERSION, DOS style (0.01, 0.02, ...
+1.00), not semantic versioning.  When a PR that changes it is
 merged to main, the release workflow tags the merge commit v<VERSION>
 and publishes a GitHub release with tar.exe attached.
 
