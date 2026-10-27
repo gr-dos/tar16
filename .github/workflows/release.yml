@@ -34,10 +34,8 @@ jobs:
             echo "new=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: open-watcom/setup-watcom@v0
-        if: steps.version.outputs.new == 'true'
-        with:
-          version: "2.0"
+      # make fetches the pinned libc16 release (scripts/fetch-libc16) and
+      # the Open Watcom snapshot it names.
 
       - name: Install DOSBox-X
         if: steps.version.outputs.new == 'true'

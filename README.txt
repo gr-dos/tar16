@@ -1,10 +1,17 @@
 TAR - POSIX tar for 16-bit MS-DOS
 ==================================
 
-Build (Linux host, Open Watcom in ~/opt/watcom):
+Build (Linux host, Open Watcom and libc16):
 
     make                    # produces tar.exe (8086, large model)
     make test               # runs tests/run.sh under DOSBox-X
+
+tar.exe links libc16's large-model library, LIBC16L.LIB, instead of
+Open Watcom's runtime.  make fetches the libc16 release pinned in
+scripts/fetch-libc16 into build/libc16, checking its SHA-256, and the
+Open Watcom snapshot it was built with into build/tools.
+"make LIBC16_ROOT=../libc16" uses a libc16 checkout built with its own
+make instead.
 
 The version is the one line in VERSION, DOS style (0.01, 0.02, ...
 1.00), not semantic versioning.  When a PR that changes it is
@@ -47,7 +54,7 @@ headers (path, linkpath, size, mtime) are understood.
 DOS specifics
 -------------
 * Set TZ (e.g. SET TZ=CET-1CEST) so timestamps convert correctly to and
-  from UTC; without it the Watcom runtime assumes EST5EDT.
+  from UTC; without it libc16 assumes UTC.
 * Stored names: drive letters removed, '\' becomes '/', lower-cased.
 * Stored modes: 644 for files and 755 for directories, or 444 for
   read-only files.  uid/gid are 0 and no user or group name is stored.
