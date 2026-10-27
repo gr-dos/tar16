@@ -31,7 +31,7 @@ pass=0
 fail=0
 
 # Everything runs in UTC: DOSBox-X presents host times in host local
-# time, and the batch file sets TZ=UTC0 for the Watcom runtime.
+# time, and the batch file sets TZ=UTC0 for the runtime.
 TZ=UTC
 export TZ
 STAMP='2001-02-03 04:05:06'
