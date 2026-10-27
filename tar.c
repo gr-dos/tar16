@@ -12,6 +12,7 @@
  * (path, linkpath, size, mtime) are understood.
  */
 
+#include <libc16.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,16 @@
 
 #ifndef VERSION
 #define VERSION   "unknown"
+#endif
+
+/* POSIX's names, from the Microsoft ones libc16's <sys/stat.h> has */
+#ifndef S_ISDIR
+#define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+#ifndef S_IRUSR
+#define S_IRUSR   S_IREAD
+#define S_IWUSR   S_IWRITE
 #endif
 
 #define BLOCK     512
@@ -110,22 +121,60 @@ static int          xx_flags;
 
 static void usage(void)
 {
-    fprintf(stderr,
+    fputs(
         "usage: tar -c[vwbfmo] [blocksize] [archive] file...\n"
         "       tar -r[vwbf] [blocksize] [archive] file...\n"
         "       tar -t[vbf] [blocksize] [archive] [file...]\n"
         "       tar -u[vwbf] [blocksize] [archive] file...\n"
         "       tar -x[vwbflmo] [blocksize] [archive] [file...]\n"
-        "       tar --version\n");
+        "       tar --version\n", stderr);
     exit(2);
+}
+
+/* Output is built from strings and numbers, in place of printf (libc16
+ * has none). */
+
+/* n in decimal, right-aligned in width columns, as "%*ld" */
+static void putnum(long n, int width, FILE *fp)
+{
+    char buf[12];
+    int  len = strlen(libc16_ltoa(n, buf, 10));
+
+    while (len++ < width)
+        fputc(' ', fp);
+    fputs(buf, fp);
+}
+
+/* "tar: S1: S2" on stderr, or "tar: S1" when s2 is NULL */
+static void complain(const char *s1, const char *s2)
+{
+    fputs("tar: ", stderr);
+    fputs(s1, stderr);
+    if (s2 != NULL) {
+        fputs(": ", stderr);
+        fputs(s2, stderr);
+    }
+    fputc('\n', stderr);
+}
+
+/* A verbose line on msg: "KEY NAME", then ", SIZE bytes" when size is
+ * not negative */
+static void report(const char *key, const char *name, long size)
+{
+    fputs(key, msg);
+    fputc(' ', msg);
+    fputs(name, msg);
+    if (size >= 0) {
+        fputs(", ", msg);
+        putnum(size, 0, msg);
+        fputs(" bytes", msg);
+    }
+    fputc('\n', msg);
 }
 
 static void warn(const char *s1, const char *s2)
 {
-    if (s2 != NULL)
-        fprintf(stderr, "tar: %s: %s\n", s1, s2);
-    else
-        fprintf(stderr, "tar: %s\n", s1);
+    complain(s1, s2);
     errors = 1;
 }
 
@@ -363,7 +412,10 @@ static int ask(const char *action, const char *name)
         return 1;
     if (tty == NULL && (tty = fopen("CON", "r")) == NULL)
         fatal("CON", strerror(errno));
-    fprintf(stderr, "%s %s? ", action, name);
+    fputs(action, stderr);
+    fputc(' ', stderr);
+    fputs(name, stderr);
+    fputs("? ", stderr);
     fflush(stderr);
     if (fgets(buf, sizeof buf, tty) == NULL)
         return 0;
@@ -659,26 +711,42 @@ static void listent(const struct ent *e)
     struct tm *tm;
 
     if (!verbose) {
-        printf("%s\n", e->name);
+        fputs(e->name, stdout);
+        fputc('\n', stdout);
         return;
     }
     modestr(mode, e);
-    if (e->uname[0] != '\0')
-        sprintf(owner, "%s/%s", e->uname,
-                e->gname[0] != '\0' ? e->gname : "-");
-    else
-        sprintf(owner, "%lu/%lu", e->uid, e->gid);
+    if (e->uname[0] != '\0') {
+        strcpy(owner, e->uname);
+        strcat(owner, "/");
+        strcat(owner, e->gname[0] != '\0' ? e->gname : "-");
+    } else {
+        libc16_ultoa(e->uid, owner, 10);
+        strcat(owner, "/");
+        libc16_ultoa(e->gid, owner + strlen(owner), 10);
+    }
     t = (time_t)e->mtime;
     if ((tm = localtime(&t)) != NULL)
         strftime(date, sizeof date, "%b %d %H:%M %Y", tm);
     else
         strcpy(date, "?");
-    printf("%s %s %8ld %s %s", mode, owner, e->size, date, e->name);
-    if (e->type == '1')
-        printf(" link to %s", e->link);
-    else if (e->type == '2')
-        printf(" -> %s", e->link);
-    printf("\n");
+    fputs(mode, stdout);
+    fputc(' ', stdout);
+    fputs(owner, stdout);
+    fputc(' ', stdout);
+    putnum(e->size, 8, stdout);
+    fputc(' ', stdout);
+    fputs(date, stdout);
+    fputc(' ', stdout);
+    fputs(e->name, stdout);
+    if (e->type == '1') {
+        fputs(" link to ", stdout);
+        fputs(e->link, stdout);
+    } else if (e->type == '2') {
+        fputs(" -> ", stdout);
+        fputs(e->link, stdout);
+    }
+    fputc('\n', stdout);
 }
 
 /* ---------------------------------------------------------------- */
@@ -777,11 +845,16 @@ static void extract(const struct ent *e)
             (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)))
             warn(path, strerror(errno));
         else if (verbose)
-            fprintf(msg, "x %s\n", e->name);
+            report("x", e->name, -1L);
         return;
     case '1':
-        if (verbose)
-            fprintf(msg, "x %s link to %s\n", e->name, e->link);
+        if (verbose) {
+            fputs("x ", msg);
+            fputs(e->name, msg);
+            fputs(" link to ", msg);
+            fputs(e->link, msg);
+            fputc('\n', msg);
+        }
         copylink(path, e);
         return;
     case '2':
@@ -802,7 +875,7 @@ static void extract(const struct ent *e)
         return;
     }
     if (verbose)
-        fprintf(msg, "x %s, %ld bytes\n", e->name, e->size);
+        report("x", e->name, e->size);
     for (left = e->size; left > 0; left -= n) {
         if ((b = rdblock()) == NULL)
             fatal(archive, "unexpected end of archive");
@@ -889,7 +962,7 @@ static void adddir(char *path, const char *name, const struct stat *st)
         } else {
             writehdr(aname, st, '5', 0L);
             if (verbose)
-                fprintf(msg, "a %s\n", aname);
+                report("a", aname, -1L);
         }
     }
 
@@ -923,7 +996,7 @@ static void addfile(const char *path, const char *name,
 
     if (afull[0] != '\0' && _fullpath(full, path, sizeof full) != NULL &&
         stricmp(full, afull) == 0) {
-        fprintf(stderr, "tar: %s: file is the archive; not dumped\n", path);
+        complain(path, "file is the archive; not dumped");
         return;
     }
     if (func == 'u' && uptodate(name, st->st_mtime))
@@ -941,7 +1014,7 @@ static void addfile(const char *path, const char *name,
     }
     writehdr(name, st, '0', st->st_size);
     if (verbose)
-        fprintf(msg, "a %s, %ld bytes\n", name, st->st_size);
+        report("a", name, st->st_size);
     for (left = st->st_size; left > 0; left -= n) {
         b = wrblock();
         n = left > BLOCK ? BLOCK : (unsigned)left;
@@ -1057,7 +1130,7 @@ int main(int argc, char **argv)
     if (argc < 2)
         usage();
     if (strcmp(argv[1], "--version") == 0) {
-        printf("tar (dos-tar16) %s\n", VERSION);
+        fputs("tar (dos-tar16) " VERSION "\n", stdout);
         return 0;
     }
     key = argv[argi++];
@@ -1091,7 +1164,9 @@ int main(int argc, char **argv)
                 fatal(argv[argi - 1], "invalid blocking factor");
             break;
         default:
-            fprintf(stderr, "tar: unknown option '%c'\n", *key);
+            fputs("tar: unknown option '", stderr);
+            fputc(*key, stderr);
+            fputs("'\n", stderr);
             usage();
         }
     }
